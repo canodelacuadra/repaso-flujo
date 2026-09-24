@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El flujo de una petición web · Repaso</title>
+<meta name="description" content="Actividad drag &amp; drop para ordenar los pasos del flujo HTML → fetch → Express → MySQL.">
+<style>
+:root{
+  --nav:#2f6fed;--http:#16a34a;--exp:#ea580c;--sql:#dc2626;
+  --bg:#f1f5f9;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;
+  --ok:#16a34a;--err:#dc2626;--accent:#7c3aed;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.45}
+header{background:#0f172a;color:#fff;padding:22px clamp(12px,4vw,40px)}
+header h1{margin:0 0 6px;font-size:clamp(1.3rem,3vw,1.8rem)}
+header .sub{margin:0 0 14px;color:#cbd5e1;max-width:760px}
+.leyenda{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.leyenda span{font-size:.85rem;padding:4px 10px;border-radius:999px;border:1px solid #334155;background:#1e293b;color:#e2e8f0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.dot-nav{background:var(--nav)}.dot-http{background:var(--http)}.dot-exp{background:var(--exp)}.dot-sql{background:var(--sql)}
+.progreso{display:flex;align-items:center;gap:12px;font-size:.85rem;color:#cbd5e1}
+.prog-barra{flex:1;max-width:420px;height:10px;background:#334155;border-radius:999px;overflow:hidden}
+.prog-lleno{height:100%;width:0;background:linear-gradient(90deg,var(--nav),var(--http));border-radius:999px;transition:width .3s}
+main{padding:clamp(12px,3vw,28px);max-width:1200px;margin:0 auto}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.tab{border:1px solid var(--line);background:var(--card);color:var(--ink);
+  padding:8px 14px;border-radius:999px;cursor:pointer;font-size:.9rem;font-weight:600}
+.tab:hover{border-color:var(--accent)}
+.tab.activo{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab .sol{display:none;font-weight:400;font-size:.78rem;margin-left:6px}
+.tab.solved .sol{display:inline}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:clamp(14px,3vw,24px)}
+.cabecera h2{margin:0 0 4px}
+.cabecera .descripcion{margin:0 0 14px;color:var(--muted);max-width:820px}
+.controles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.btn{border:none;border-radius:8px;padding:9px 16px;font-size:.9rem;font-weight:600;cursor:pointer;color:#fff}
+.btn-comprobar{background:var(--ok)}
+.btn-comprobar[disabled]{background:#a7d7ad;cursor:not-allowed}
+.btn-limpiar{background:#94a3b8}
+.btn-solucion{background:var(--accent)}
+.btn-reiniciar{background:var(--muted)}
+.btn:hover{filter:brightness(1.08)}
+.instrucciones{background:#f8fafc;border:1px dashed var(--line);border-radius:10px;
+  padding:10px 14px;font-size:.88rem;color:#334155;margin-bottom:16px}
+.zona{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:860px){.zona{grid-template-columns:1fr}}
+.col h3{margin:0 0 10px;font-size:.95rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.solapa{min-height:90px;border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px}
+.vacio{padding:22px;text-align:center;color:#94a3b8;font-size:.9rem}
+.tarjeta{position:relative;border:2px solid var(--line);border-left-width:6px;border-radius:10px;
+  background:#fff;padding:10px 12px;cursor:grab;user-select:none}
+.tarjeta.dragging{opacity:.4}
+.tarjeta.selected{outline:3px solid var(--accent)}
+.tarjeta .badge{display:inline-block;font-size:.7rem;font-weight:700;color:#fff;
+  background:var(--c);padding:2px 8px;border-radius:999px;margin-bottom:5px;letter-spacing:.03em}
+.tarjeta .txt{font-size:.9rem;display:block}
+.tarjeta .nota{display:none;font-size:.8rem;color:var(--muted);border-top:1px dashed var(--line);margin-top:7px;padding-top:6px}
+.zona.modo-check .tarjeta .nota{display:block}
+.capa-nav{--c:var(--nav)}.capa-http{--c:var(--http)}.capa-exp{--c:var(--exp)}.capa-sql{--c:var(--sql)}
+.tarjeta.correcta{border-color:var(--ok);background:#f0fdf4}
+.tarjeta.correcta .badge{background:var(--ok)}
+.tarjeta.incorrecta{border-color:var(--err);background:#fef2f2}
+.tarjeta.incorrecta .badge{background:var(--err)}
+.hueco{border:2px dashed var(--line);border-radius:10px;padding:8px;
+  display:flex;flex-direction:column;gap:6px;min-height:58px;transition:border-color .15s}
+.hueco.over{border-color:var(--accent);background:#f5f3ff}
+.hueco .indice{font-size:.72rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.hueco .tarjeta{cursor:pointer}
+.resultado{margin-top:16px;font-weight:600;font-size:.95rem;min-height:22px}
+.resultado.ok{color:var(--ok)}.resultado.err{color:var(--err)}
+.victoria{margin-top:14px;background:#f0fdf4;border:2px solid var(--ok);border-radius:12px;
+  padding:14px 18px;font-size:1rem}
+.victoria strong{color:var(--ok)}
+.diagrama{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.diagrama .tit{font-weight:700;margin:0 0 12px;font-size:.95rem}
+.diag-fila{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+.diag-capa{flex:1 1 180px;border:2px solid var(--c);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-width:170px}
+.diag-cabeza{background:var(--c);color:#fff;font-weight:700;text-align:center;padding:5px}
+.diag-cards{display:flex;flex-direction:column;gap:6px;padding:8px;background:#fff;flex:1}
+.diag-card{border:1px solid var(--line);border-left:4px solid var(--c);border-radius:8px;
+  font-size:.8rem;padding:6px 8px}
+.diag-card b{color:var(--muted);margin-right:4px}
+.diag-flecha{align-self:center;font-size:1.4rem;color:var(--muted)}
+.diag-retorno{margin-top:10px;font-size:.82rem;color:var(--muted);background:#f8fafc;
+  border:1px dashed var(--line);border-radius:8px;padding:8px 12px}
+footer{padding:20px;text-align:center;color:var(--muted);font-size:.82rem}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>El flujo de una petición web</h1>
+  <p class="sub">Ordena los pasos de cada escenario para reconstruir el flujo completo de tu stack:
+  <strong>HTML → fetch → Express → MySQL</strong>. Cada tarjeta indica en qué capa ocurre el paso.</p>
+  <div class="leyenda">
+    <span><i class="dot dot-nav"></i>Navegador (HTML, CSS y JS del cliente)</span>
+    <span><i class="dot dot-http"></i>HTTP · fetch (la comunicación)</span>
+    <span><i class="dot dot-exp"></i>Express (servidor Node, rutas y controladores)</span>
+    <span><i class="dot dot-sql"></i>MySQL (la base de datos)</span>
+  </div>
+  <div class="progreso">
+    <span id="progresoTexto">Escenarios superados: 0 / 6</span>
+    <div class="prog-barra"><div class="prog-lleno" id="progLleno"></div></div>
+  </div>
+</header>
+
+<main>
+  <nav class="tabs" id="tabs" aria-label="Escenarios"></nav>
+
+  <section class="panel" id="panel">
+    <div class="cabecera">
+      <h2 id="titulo"></h2>
+      <p class="descripcion" id="descripcion"></p>
+    </div>
+
+    <div class="instrucciones">
+      Lee la situación del escenario. Arrastra cada tarjeta al hueco del flujo donde crees que ocurre
+      (o tócala y pulsa el hueco). Cuando las tengas todas colocadas, pulsa <strong>Comprobar</strong>.
+      Las tarjetas correctas se marcan en verde y al comprobarlas verás la explicación de cada paso.
+    </div>
+
+    <div class="controles">
+      <button class="btn btn-comprobar" id="btnComprobar">Comprobar</button>
+      <button class="btn btn-limpiar" id="btnLimpiar">Limpiar tarjetas</button>
+      <button class="btn btn-solucion" id="btnSolucion">Ver solución</button>
+      <button class="btn btn-reiniciar" id="btnReiniciar">Reiniciar</button>
+    </div>
+
+    <div class="zona" id="zona">
+      <div class="col">
+        <h3>Tarjetas</h3>
+        <div class="solapa" id="pool"></div>
+      </div>
+      <div class="col">
+        <h3>El flujo, en orden</h3>
+        <div class="solapa" id="slots"></div>
+      </div>
+    </div>
+
+    <div class="resultado" id="resultado"></div>
+    <div class="victoria" id="victoria" hidden></div>
+    <div class="diagrama" id="diagrama"></div>
+  </section>
+</main>
+
+<footer>Actividad de repaso · Stack: HTML → fetch → Express → MySQL · Generada para clase</footer>
+
+<script>
+const CAPAS = {
+  nav: { nombre: 'Navegador', color: '#2f6fed' },
+  http: { nombre: 'HTTP · fetch', color: '#16a34a' },
+  exp: { nombre: 'Express', color: '#ea580c' },
+  sql: { nombre: 'MySQL', color: '#dc2626' }
+};
+
+const ESCENARIOS = [
+{
+  id: 'get',
+  tab: '1 · Cargar datos (GET)',
+  titulo: 'Cargar datos con GET',
+  descripcion: `El usuario pulsa el botón "Ver productos". Ordena los pasos del flujo para que la lista se cargue en pantalla.`,
+  pasos: [
+    { c: 'nav', t: `El usuario pulsa el botón "Ver productos" y se dispara el evento click.`, n: `Todo empieza en el navegador: un evento del usuario dispara el código JavaScript.` },
+    { c: 'nav', t: `JavaScript hace una petición al servidor con fetch("/api/productos") y método GET.`, n: `fetch() es la API del navegador que inicia una petición HTTP. Todavía no hay datos.` },
+    { c: 'http', t: `La petición GET viaja por la red hasta el servidor (ruta /api/productos).`, n: `La capa HTTP es el "viaje" del request entre el navegador y el servidor.` },
+    { c: 'exp', t: `Express recibe la petición y encuentra la ruta GET /api/productos.`, n: `Express compara el método (GET) y la URL para invocar al controlador correcto.` },
+    { c: 'exp', t: `El controlador ejecuta la consulta: SELECT * FROM productos.`, n: `El controlador usa el driver de MySQL para pedir los datos.` },
+    { c: 'sql', t: `MySQL ejecuta la consulta y devuelve las filas de la tabla productos.`, n: `La base de datos responde con las filas; todavía no es una respuesta HTTP.` },
+    { c: 'exp', t: `Express serializa el resultado y responde res.json(productos) con código 200.`, n: `res.json() convierte el array a JSON y devuelve la respuesta por HTTP.` },
+    { c: 'nav', t: `El fetch se completa: el .then recibe el JSON y actualiza el DOM.`, n: `Último paso: JavaScript recorre los productos y los muestra en la página.` }
+  ]
+},
+{
+  id: 'post',
+  tab: '2 · Enviar datos (POST)',
+  titulo: 'Enviar datos con POST',
+  descripcion: `El usuario rellena el formulario "Alta de producto" y pulsa "Guardar". Ordena los pasos hasta que el producto se guarda y se confirma.`,
+  pasos: [
+    { c: 'nav', t: `Se dispara el evento submit del formulario.`, n: `El navegador captura que el usuario quiere enviar el formulario.` },
+    { c: 'nav', t: `JavaScript evita el envío por defecto con event.preventDefault().`, n: `Sin esto, el navegador recargaría la página con un envío clásico de formulario.` },
+    { c: 'nav', t: `JS recoge los valores de los campos y los convierte a JSON con JSON.stringify().`, n: `Los datos del formulario se preparan como objeto JS y se serializan a JSON.` },
+    { c: 'http', t: `JS envía los datos con fetch("/api/productos", { method: "POST", headers, body: JSON }).`, n: `Con method POST y el body en JSON se manda la información al servidor.` },
+    { c: 'exp', t: `Express recibe la petición y encuentra la ruta POST /api/productos.`, n: `Express distingue GET de POST aunque la URL sea la misma.` },
+    { c: 'exp', t: `Express ejecuta express.json(): parsea el body y lo deja en req.body.`, n: `Middleware de Express que convierte el JSON recibido en un objeto JavaScript.` },
+    { c: 'exp', t: `La validación comprueba que el campo "nombre" no está vacío.`, n: `El servidor nunca confía en los datos del cliente: valida antes de guardar.` },
+    { c: 'exp', t: `El controlador ejecuta el INSERT en MySQL con los datos de req.body.`, n: `Aquí se crea el nuevo registro en la base de datos.` },
+    { c: 'sql', t: `MySQL confirma la inserción del nuevo producto.`, n: `La base de datos responde con OK y el id del registro creado.` },
+    { c: 'exp', t: `Express responde res.status(201).json({ mensaje: "Producto creado" }).`, n: `201 = Created: indica que el recurso se creó correctamente.` },
+    { c: 'nav', t: `El .then muestra el mensaje de éxito y refresca la lista con un nuevo GET.`, n: `Cierre del ciclo: se confirma al usuario y se recargan los datos.` }
+  ]
+},
+{
+  id: 'e404',
+  tab: '3 · Error 404',
+  titulo: 'Producto no encontrado (404)',
+  descripcion: `El usuario pide el detalle de un producto que no existe: fetch("/api/productos/999"). Ordena el flujo del error.`,
+  pasos: [
+    { c: 'nav', t: `JavaScript hace fetch("/api/productos/999") pidiendo el detalle.`, n: `El id 999 va en la URL: /:id.` },
+    { c: 'http', t: `La petición GET /api/productos/999 viaja por la red hasta el servidor.`, n: `La misma pierna HTTP que en el GET normal.` },
+    { c: 'exp', t: `Express recibe la petición y encuentra la ruta GET /api/productos/:id.`, n: `Express captura el valor 999 en req.params.id.` },
+    { c: 'exp', t: `El controlador ejecuta: SELECT * FROM productos WHERE id = 999.`, n: `Consulta a MySQL filtrando por id.` },
+    { c: 'sql', t: `MySQL ejecuta la consulta y devuelve 0 filas.`, n: `El producto 999 no está en la tabla: el resultado es vacío.` },
+    { c: 'exp', t: `Express responde res.status(404).json({ mensaje: "Producto no encontrado" }).`, n: `El código 404 avisa de que no existe, pero la respuesta llega igual por HTTP.` },
+    { c: 'http', t: `El navegador recibe la respuesta con estado 404 (response.ok = false).`, n: `Ojo: fetch NO se rechaza por un 404; la promesa se resuelve igualmente.` },
+    { c: 'nav', t: `El código comprueba response.ok, ve que es false y lanza un error.`, n: `Hay que comprobar response.ok manualmente para entrar en el tratamiento de error.` },
+    { c: 'nav', t: `El .catch captura el error y muestra "Producto no encontrado" en el DOM.`, n: `El bloque catch trata el error y avisa al usuario.` }
+  ]
+},
+{
+  id: 'e500',
+  tab: '4 · Error 500',
+  titulo: 'Error interno del servidor (500)',
+  descripcion: `Al pulsar "Ver productos", el servidor falla al ejecutar la consulta SQL. Ordena cómo se propaga y se muestra el error.`,
+  pasos: [
+    { c: 'nav', t: `JavaScript hace fetch("/api/productos").`, n: `Es el mismo GET del primer escenario, pero esta vez algo falla en el servidor.` },
+    { c: 'exp', t: `Express recibe la petición y llama al controlador.`, n: `Express identifica la ruta y delega en el controlador.` },
+    { c: 'exp', t: `Al ejecutar la consulta SQL se produce un error (por ejemplo, la tabla productos no existe).`, n: `El error ocurre dentro del servidor, no por culpa del cliente.` },
+    { c: 'sql', t: `MySQL detecta el error y lanza una excepción hacia Node.`, n: `El driver de MySQL comunica el fallo al proceso Node.` },
+    { c: 'exp', t: `El error se captura con try/catch (o middleware de errores).`, n: `Node no se cae: el error se gestiona y se convierte en una respuesta HTTP.` },
+    { c: 'exp', t: `Express responde res.status(500).json({ mensaje: "Error interno del servidor" }).`, n: `500 = Internal Server Error: el problema está del lado del servidor.` },
+    { c: 'nav', t: `fetch se resuelve con response.ok = false (estado 500).`, n: `Igual que en el 404: la promesa no se rechaza sola; hay que mirar response.ok.` },
+    { c: 'nav', t: `El .catch muestra el mensaje de error en el DOM.`, n: `El usuario ve el aviso sin que la aplicación se rompa.` }
+  ]
+},
+{
+  id: 'e400',
+  tab: '5 · Validación (400)',
+  titulo: 'Datos inválidos (400)',
+  descripcion: `El usuario pulsa "Guardar" dejando el campo "nombre" vacío. Ordena cómo la validación del servidor responde.`,
+  pasos: [
+    { c: 'nav', t: `Se dispara el evento submit y el campo "nombre" está vacío.`, n: `El usuario no rellenó un campo obligatorio.` },
+    { c: 'nav', t: `JS construye el body JSON y hace fetch POST a /api/productos.`, n: `Los datos incompletos viajan al servidor igualmente.` },
+    { c: 'exp', t: `Express recibe la petición, encuentra la ruta POST y parsea req.body.`, n: `El mismo camino que en el POST correcto.` },
+    { c: 'exp', t: `La validación detecta que el campo "nombre" está vacío.`, n: `La validación del servidor decide que los datos son inválidos.` },
+    { c: 'exp', t: `Express responde res.status(400).json({ mensaje: "El nombre es obligatorio" }).`, n: `400 = Bad Request: los datos enviados no son válidos.` },
+    { c: 'nav', t: `fetch se completa pero response.ok = false.`, n: `La respuesta existe (el servidor sí respondió), pero indica error.` },
+    { c: 'nav', t: `El código comprueba response.ok y lanza un error que captura el .catch.`, n: `Se trata el error igual que en 404 y 500.` },
+    { c: 'nav', t: `JS muestra el mensaje de validación junto al formulario.`, n: `El usuario sabe exactamente qué corregir.` }
+  ]
+},
+{
+  id: 'red',
+  tab: '6 · Sin red / servidor caído',
+  titulo: 'Sin conexión o servidor caído',
+  descripcion: `El alumno abre la app con la red caída o con el servidor Express apagado. Ordena lo que ocurre en el navegador.`,
+  pasos: [
+    { c: 'nav', t: `La app intenta cargar datos: JavaScript hace fetch("/api/productos").`, n: `El punto de partida es siempre el navegador.` },
+    { c: 'http', t: `La petición sale por la red hacia el servidor.`, n: `La petición inicia el viaje.` },
+    { c: 'nav', t: `Nadie responde: red caída, servidor apagado o se supera el tiempo límite con AbortController.`, n: `Con AbortController y un temporizador se puede abortar una petición lenta manualmente.` },
+    { c: 'nav', t: `fetch lanza un error de red (TypeError: "Failed to fetch"): la promesa se rechaza.`, n: `Aquí NO hay respuesta HTTP: por eso la promesa se rechaza directamente (no es un 404/500).` },
+    { c: 'nav', t: `El .catch captura el error de red.`, n: `El catch se encarga de lo que no llega a ser una respuesta HTTP.` },
+    { c: 'nav', t: `JS muestra "No se pudo conectar con el servidor" en el DOM.`, n: `Prever el fallo evita que la aplicación se quede bloqueada.` }
+  ]
+}
+];
+
+const KEY = 'flujo-web-progreso';
+let progreso = {};
+try { progreso = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { progreso = {}; }
+
+let escenarioActual = null;
+const estado = { slots: [], pool: [], checked: false, attempts: 0, best: 0, solved: false, selectedId: null };
+
+const $ = (sel) => document.querySelector(sel);
+const refs = {
+  tabs: $('#tabs'), pool: $('#pool'), slots: $('#slots'),
+  titulo: $('#titulo'), descripcion: $('#descripcion'), zona: $('#zona'),
+  btnComprobar: $('#btnComprobar'), btnLimpiar: $('#btnLimpiar'),
+  btnSolucion: $('#btnSolucion'), btnReiniciar: $('#btnReiniciar'),
+  resultado: $('#resultado'), victoria: $('#victoria'), diagrama: $('#diagrama'),
+  progresoTexto: $('#progresoTexto'), progLleno: $('#progLleno')
+};
+
+function guardar() { try { localStorage.setItem(KEY, JSON.stringify(progreso)); } catch (e) {} }
+
+function barajar(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function pasoPorId(esc, id) {
+  return esc.pasos.find((p) => p.id === id);
+}
+
+function crearTarjeta(esc, id) {
+  const paso = pasoPorId(esc, id);
+  const div = document.createElement('div');
+  div.className = 'tarjeta capa-' + paso.c;
+  if (estado.selectedId === id) div.classList.add('selected');
+  div.draggable = true;
+  div.dataset.id = id;
+  div.setAttribute('role', 'button');
+  div.setAttribute('tabindex', '0');
+  div.setAttribute('aria-label', paso.t);
+  div.innerHTML =
+    `<span class="badge">${CAPAS[paso.c].nombre}</span>` +
+    `<span class="txt"></span>` +
+    `<span class="nota"></span>`;
+  div.querySelector('.txt').textContent = paso.t;
+  div.querySelector('.nota').textContent = paso.n;
+  div.addEventListener('click', () => clickTarjeta(id));
+  div.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clickTarjeta(id); }
+  });
+  div.addEventListener('dragstart', (e) => {
+    estado.selectedId = id;
+    div.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    render();
+  });
+  div.addEventListener('dragend', () => div.classList.remove('dragging'));
+  return div;
+}
+
+function clickTarjeta(id) {
+  estado.selectedId = estado.selectedId === id ? null : id;
+  render();
+}
+
+function colocar(id, i) {
+  estado.pool = estado.pool.filter((x) => x !== id);
+  estado.slots = estado.slots.map((x) => (x === id ? null : x));
+  const actual = estado.slots[i];
+  if (actual) estado.pool.push(actual);
+  estado.slots[i] = id;
+  estado.selectedId = null;
+  estado.checked = false;
+  render();
+}
+
+function render() {
+  const esc = escenarioActual;
+  if (!esc) return;
+
+  refs.titulo.textContent = esc.titulo;
+  refs.descripcion.textContent = esc.descripcion;
+  refs.zona.classList.toggle('modo-check', estado.checked);
+
+  refs.pool.innerHTML = '';
+  if (estado.pool.length === 0) {
+    const v = document.createElement('div');
+    v.className = 'vacio';
+    v.textContent = 'Todas las tarjetas están colocadas en el flujo.';
+    refs.pool.appendChild(v);
+  } else {
+    estado.pool.forEach((id) => refs.pool.appendChild(crearTarjeta(esc, id)));
+  }
+
+  refs.slots.innerHTML = '';
+  estado.slots.forEach((id, i) => {
+    const hueco = document.createElement('div');
+    hueco.className = 'hueco';
+    hueco.dataset.i = i;
+    const indice = document.createElement('div');
+    indice.className = 'indice';
+    indice.textContent = 'Paso ' + (i + 1);
+    hueco.appendChild(indice);
+    if (id) {
+      const tarjeta = crearTarjeta(esc, id);
+      tarjeta.classList.add('en-hueco');
+      if (estado.checked) {
+        const correcto = id === esc.pasos[i].id;
+        tarjeta.classList.add(correcto ? 'correcta' : 'incorrecta');
+      }
+      hueco.appendChild(tarjeta);
+    }
+    hueco.addEventListener('click', () => clickHueco(i));
+    hueco.addEventListener('dragover', (e) => { e.preventDefault(); hueco.classList.add('over'); });
+    hueco.addEventListener('dragleave', () => hueco.classList.remove('over'));
+    hueco.addEventListener('drop', (e) => {
+      e.preventDefault();
+      hueco.classList.remove('over');
+      const idArr = e.dataTransfer.getData('text/plain');
+      const idFinal = idArr || estado.selectedId;
+      if (idFinal) colocar(idFinal, i);
+    });
+    refs.slots.appendChild(hueco);
+  });
+
+  refs.btnComprobar.disabled = estado.pool.length > 0;
+  refs.btnComprobar.textContent = estado.checked && !estado.solved ? 'Comprobar de nuevo' : 'Comprobar';
+  renderResultado();
+  renderDiagrama();
+  renderProgreso();
+}
+
+function clickHueco(i) {
+  if (estado.selectedId) {
+    colocar(estado.selectedId, i);
+  } else if (estado.slots[i]) {
+    estado.selectedId = estado.slots[i];
+    render();
+  }
+}
+
+function comprobar() {
+  const esc = escenarioActual;
+  if (estado.pool.length > 0) return;
+  estado.checked = true;
+  estado.attempts++;
+  let correctos = 0;
+  estado.slots.forEach((id, i) => {
+    if (id === esc.pasos[i].id) correctos++;
+  });
+  if (correctos > estado.best) estado.best = correctos;
+  if (correctos === esc.pasos.length) {
+    estado.solved = true;
+    progreso[esc.id] = { best: estado.best, solved: true };
+    guardar();
+  }
+  render();
+}
+
+function verSolucion() {
+  const esc = escenarioActual;
+  if (estado.solved) return;
+  const ok = confirm('¿Mostrar la solución de este escenario? Se rellenará el flujo correcto.');
+  if (!ok) return;
+  estado.slots = esc.pasos.map((p) => p.id);
+  estado.pool = [];
+  estado.checked = true;
+  estado.solved = true;
+  estado.selectedId = null;
+  progreso[esc.id] = { best: estado.best || esc.pasos.length, solved: true };
+  guardar();
+  render();
+}
+
+function limpiar() {
+  estado.slots = estado.slots.map(() => null);
+  estado.pool = barajar(escenarioActual.pasos.map((p) => p.id));
+  estado.checked = false;
+  estado.selectedId = null;
+  render();
+}
+
+function reiniciar() {
+  estado.slots = Array(escenarioActual.pasos.length).fill(null);
+  estado.pool = barajar(escenarioActual.pasos.map((p) => p.id));
+  estado.checked = false;
+  estado.attempts = 0;
+  estado.solved = false;
+  estado.selectedId = null;
+  progreso[escenarioActual.id] = { best: 0, solved: false };
+  guardar();
+  render();
+}
+
+function renderResultado() {
+  const esc = escenarioActual;
+  const r = refs.resultado;
+  r.className = 'resultado';
+  if (!estado.checked) {
+    r.textContent = '';
+    if (estado.best > 0) r.textContent = 'Mejor acierto: ' + estado.best + ' de ' + esc.pasos.length;
+    return;
+  }
+  let correctos = 0;
+  estado.slots.forEach((id, i) => { if (id === esc.pasos[i].id) correctos++; });
+  if (estado.solved) {
+    r.classList.add('ok');
+    r.textContent = 'Escenario superado con ' + correctos + ' de ' + esc.pasos.length + ' en el intento ' + estado.attempts + ' (mejor: ' + estado.best + ').';
+    refs.victoria.hidden = false;
+    refs.victoria.innerHTML = `<strong>¡Flujo completado!</strong> Revisa el diagrama de abajo: cada capa reúne los pasos que ocurren en ella. ` +
+      `Pasea por el escenario: esto es exactamente lo que pasa cuando tu app hace un ` +
+      `<code>fetch()</code> y Express consulta a MySQL.`;
+  } else {
+    r.classList.add('err');
+    r.textContent = 'Aciertos: ' + correctos + ' de ' + esc.pasos.length + ' (intento ' + estado.attempts + '). Las tarjetas en rojo están mal colocadas: vuelve a intentarlo. Mejor acierto: ' + estado.best + '.';
+    refs.victoria.hidden = true;
+  }
+}
+
+function renderDiagrama() {
+  const esc = escenarioActual;
+  const d = refs.diagrama;
+  if (!estado.solved) { d.innerHTML = ''; return; }
+  const orden = ['nav', 'http', 'exp', 'sql'];
+  let html = '<p class="tit">Diagrama del flujo: por dónde pasa cada paso</p><div class="diag-fila">';
+  orden.forEach((c, k) => {
+    if (k > 0) html += '<div class="diag-flecha">→</div>';
+    const cards = esc.pasos.filter((p) => p.c === c);
+    html += '<div class="diag-capa" style="--c:' + CAPAS[c].color + '">';
+    html += '<div class="diag-cabeza">' + CAPAS[c].nombre + '</div><div class="diag-cards">';
+    cards.forEach((p) => {
+      const num = esc.pasos.indexOf(p) + 1;
+      html += '<div class="diag-card"><b>' + num + '.</b>' + p.t + '</div>';
+    });
+    html += '</div></div>';
+  });
+  html += '</div><div class="diag-retorno">La respuesta de MySQL vuelve al navegador por el camino inverso: ' +
+    'MySQL → Express → HTTP/fetch → Navegador, donde el <code>.then()</code> actualiza el DOM.</div>';
+  d.innerHTML = html;
+}
+
+function renderProgreso() {
+  const total = ESCENARIOS.length;
+  let resueltos = 0;
+  ESCENARIOS.forEach((e) => { if (progreso[e.id] && progreso[e.id].solved) resueltos++; });
+  refs.progresoTexto.textContent = 'Escenarios superados: ' + resueltos + ' / ' + total;
+  refs.progLleno.style.width = (resueltos / total * 100) + '%';
+}
+
+function renderTabs() {
+  refs.tabs.innerHTML = '';
+  ESCENARIOS.forEach((e) => {
+    const b = document.createElement('button');
+    b.className = 'tab';
+    if (e.id === escenarioActual.id) b.classList.add('activo');
+    if (progreso[e.id] && progreso[e.id].solved) b.classList.add('solved');
+    b.textContent = e.tab;
+    const span = document.createElement('span');
+    span.className = 'sol';
+    span.textContent = '· Listo';
+    b.appendChild(span);
+    b.addEventListener('click', () => seleccionar(e.id));
+    refs.tabs.appendChild(b);
+  });
+}
+
+function seleccionar(id) {
+  const esc = ESCENARIOS.find((e) => e.id === id);
+  escenarioActual = esc;
+  const ant = progreso[esc.id] || { best: 0, solved: false };
+  estado.slots = Array(esc.pasos.length).fill(null);
+  estado.pool = barajar(esc.pasos.map((p) => p.id));
+  estado.checked = false;
+  estado.attempts = 0;
+  estado.best = ant.best || 0;
+  estado.solved = !!ant.solved;
+  estado.selectedId = null;
+  if (estado.solved) {
+    estado.slots = esc.pasos.map((p) => p.id);
+    estado.pool = [];
+  }
+  refs.victoria.hidden = true;
+  renderTabs();
+  render();
+}
+
+refs.btnComprobar.addEventListener('click', comprobar);
+refs.btnLimpiar.addEventListener('click', limpiar);
+refs.btnSolucion.addEventListener('click', verSolucion);
+refs.btnReiniciar.addEventListener('click', reiniciar);
+
+seleccionar('get');
+</script>
+</body>
+</html>
