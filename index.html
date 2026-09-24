@@ -257,6 +257,8 @@ const ESCENARIOS = [
 }
 ];
 
+ESCENARIOS.forEach((e) => e.pasos.forEach((p, i) => { p.id = String(i); }));
+
 const KEY = 'flujo-web-progreso';
 let progreso = {};
 try { progreso = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { progreso = {}; }
@@ -310,14 +312,20 @@ function crearTarjeta(esc, id) {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clickTarjeta(id); }
   });
   div.addEventListener('dragstart', (e) => {
-    estado.selectedId = id;
+    actualizarSeleccion(id);
     div.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.setData('text/plain', String(id));
     e.dataTransfer.effectAllowed = 'move';
-    render();
   });
   div.addEventListener('dragend', () => div.classList.remove('dragging'));
   return div;
+}
+
+function actualizarSeleccion(id) {
+  estado.selectedId = id;
+  document.querySelectorAll('.tarjeta').forEach((el) => {
+    el.classList.toggle('selected', el.dataset.id === id);
+  });
 }
 
 function clickTarjeta(id) {
